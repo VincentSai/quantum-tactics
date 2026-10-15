@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quantum Tactics: HexOutpost | Agent & Human Multiplayer Strategy</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --panel: rgba(16, 24, 39, 0.85);
+      --border: rgba(56, 189, 248, 0.2);
+      --neon-blue: #38bdf8;
+      --neon-red: #f43f5e;
+      --neon-green: #10b981;
+      --neon-amber: #f59e0b;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body {
+      background: var(--bg);
+      background-image: 
+        radial-gradient(circle at 50% 20%, rgba(56, 189, 248, 0.12) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(244, 63, 94, 0.08) 0%, transparent 40%);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1.5rem 1rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 1.25rem;
+    }
+    header h1 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      background: linear-gradient(135deg, #38bdf8, #818cf8, #f43f5e);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.35rem;
+    }
+    header p {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .main-container {
+      display: grid;
+      grid-template-columns: 320px 520px 320px;
+      gap: 1.25rem;
+      max-width: 1200px;
+      width: 100%;
+    }
+
+    @media (max-width: 1100px) {
+      .main-container {
+        grid-template-columns: 1fr;
+        max-width: 600px;
+      }
+    }
+
+    .card {
+      background: var(--panel);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.25rem;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    h2 {
+      font-size: 1.1rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--neon-blue);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 0.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Board View */
+    .board-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #game-canvas {
+      background: rgba(10, 15, 26, 0.9);
+      border: 2px solid rgba(56, 189, 248, 0.4);
+      border-radius: 16px;
+      box-shadow: 0 0 30px rgba(56, 189, 248, 0.15);
+      cursor: pointer;
+    }
+
+    /* Actions Bar */
+    .action-bar {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1rem;
+      width: 100%;
+    }
+    .btn {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      border: none;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    .btn-shield {
+      background: linear-gradient(135deg, #0284c7, #0369a1);
+      color: white;
+      box-shadow: 0 4px 15px rgba(2, 132, 199, 0.3);
+    }
+    .btn-shield:hover:not(:disabled) {
+      filter: brightness(1.15);
+      transform: translateY(-1px);
+    }
+    .btn-pass {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--muted);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .btn-pass:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.15);
+      color: white;
+    }
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    /* Status & Turn Info */
+    .turn-badge {
+      display: inline-block;
+      padding: 0.35rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--neon-blue);
+      border: 1px solid var(--border);
+    }
+
+    .player-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.65rem 0.85rem;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .player-row.active {
+      border-color: var(--neon-blue);
+      background: rgba(56, 189, 248, 0.08);
+      box-shadow: inset 0 0 10px rgba(56, 189, 248, 0.1);
+    }
+    .player-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+    .color-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+    }
+    .hp-hearts {
+      color: var(--neon-red);
+      font-size: 1rem;
+      letter-spacing: 2px;
+    }
+
+    /* Log Box */
+    .log-container {
+      height: 230px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 0.82rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      padding: 0.5rem;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .log-item {
+      color: #cbd5e1;
+      line-height: 1.35;
+    }
+    .log-item.highlight {
+      color: #38bdf8;
+      font-weight: bold;
+    }
+    .log-item.hit {
+      color: #f43f5e;
+    }
+    .log-item.win {
+      color: #f59e0b;
+      font-weight: bold;
+    }
+
+    /* Lobby Controls */
+    .input-group {
+      display: flex;
+      gap: 0.5rem;
+    }
+    input[type="text"] {
+      flex: 1;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      padding: 0.6rem 0.85rem;
+      color: white;
+      font-size: 0.9rem;
+    }
+    input[type="text"]:focus {
+      outline: none;
+      border-color: var(--neon-blue);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #38bdf8, #2563eb);
+      color: white;
+    }
+
+    /* Replay Controls */
+    .replay-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.5rem 0.75rem;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+    }
+
+    /* Footer & Rules */
+    .rules-card {
+      font-size: 0.88rem;
+      line-height: 1.5;
+      color: #94a3b8;
+    }
+    .rules-card strong {
+      color: #f8fafc;
+    }
+    .api-badge {
+      display: inline-block;
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>⚡ QUANTUM TACTICS: HEXOUTPOST</h1>
+    <p>Multiplayer Strategy Arena for AI Agents & Humans (2-4 Players | Turn-Based)</p>
+  </header>
+
+  <div class="main-container">
+    
+    <!-- Left Column: Match Lobby & Players -->
+    <div class="card">
+      <h2>Room & Lobby <span class="api-badge" id="net-mode">STANDALONE ARENA</span></h2>
+      
+      <div id="lobby-panel" style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <div class="input-group">
+          <input type="text" id="player-name" placeholder="Commander Name" value="Human_Alpha">
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+          <button class="btn btn-primary" onclick="createMatch()">Create Room</button>
+          <button class="btn btn-pass" onclick="joinMatch()">Join Code</button>
+        </div>
+        <div class="input-group">
+          <input type="text" id="join-code" placeholder="4-Char Room Code (e.g. QT72)">
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+          <button class="btn btn-shield" id="btn-add-bot" onclick="addBot()">+ Add AI Bot</button>
+          <button class="btn btn-primary" id="btn-start" onclick="startMatch()">Start Match</button>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--muted); text-align: center;">
+          Room Code: <strong style="color: var(--neon-blue); font-size: 1.1rem;" id="disp-room-code">QT01</strong>
+        </div>
+      </div>
+
+      <h2 style="margin-top: 0.5rem;">Commanders</h2>
+      <div id="player-list" style="display: flex; flex-direction: column; gap: 0.5rem;">
+        <!-- Filled by JS -->
+      </div>
+
+      <div class="rules-card">
+        <strong>One-Paragraph Rules:</strong> Move on a 5x5 grid (2 Action Points/turn). Deploy shields to absorb lethal hits, attack adjacent foes, or capture the glowing Central Outpost [2,2]. First to control the Outpost for 3 turns OR eliminate all rivals wins!
+      </div>
+    </div>
+
+    <!-- Center Column: Tactical Grid Canvas & Actions -->
+    <div class="card board-container">
+      <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+        <div class="turn-badge" id="turn-indicator">Round 1 - Waiting for Players</div>
+        <div style="font-size: 0.85rem; color: var(--muted);" id="ap-indicator">AP: ● ●</div>
+      </div>
+
+      <canvas id="game-canvas" width="480" height="480"></canvas>
+
+      <div class="action-bar">
+        <button class="btn btn-shield" id="btn-shield" onclick="doAction('SHIELD')">
+          🛡️ Deploy Shield (1 AP)
+        </button>
+        <button class="btn btn-pass" id="btn-pass" onclick="doAction('PASS')">
+          ⏭️ End Turn
+        </button>
+      </div>
+
+      <!-- Replay Controls (Visible when Ended) -->
+      <div id="replay-panel" class="replay-bar" style="width: 100%; display: none;">
+        <span style="font-size: 0.85rem; font-weight: bold; color: var(--neon-amber);">🎞️ Match Replay</span>
+        <div style="display: flex; gap: 0.5rem;">
+          <button class="btn btn-pass" style="padding: 4px 10px;" onclick="stepReplay(-1)">◀ Prev</button>
+          <span id="replay-step" style="font-size: 0.85rem; align-self: center;">0 / 0</span>
+          <button class="btn btn-pass" style="padding: 4px 10px;" onclick="stepReplay(1)">Next ▶</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Match Log & Developer API -->
+    <div class="card">
+      <h2>Tactical Log</h2>
+      <div class="log-container" id="match-log">
+        <div class="log-item">[00:00:00] Quantum tactical arena initialized.</div>
+        <div class="log-item highlight">[00:00:00] Awaiting commanders or AI agents...</div>
+      </div>
+
+      <h2 style="margin-top: 0.5rem;">Agent HTTP API Docs</h2>
+      <div style="font-size: 0.8rem; line-height: 1.45; color: #94a3b8; display: flex; flex-direction: column; gap: 0.5rem;">
+        <div>
+          <span style="color: #38bdf8; font-weight: bold;">GET</span> <code>/api/match/{id}/state?player_id=p1</code><br>
+          Returns board, AP, players, and <code>valid_moves</code>.
+        </div>
+        <div>
+          <span style="color: #f43f5e; font-weight: bold;">POST</span> <code>/api/match/{id}/move</code><br>
+          Payload: <code>{"player_id":"p1","token":"...","action":"MOVE","target":[2,2]}</code>
+        </div>
+        <div style="background: rgba(0,0,0,0.4); padding: 0.5rem; border-radius: 6px; font-family: monospace; font-size: 0.75rem;">
+          Run sample bot:<br>
+          <span style="color: #34d399;">$ python sample_bot.py --join QT01</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // --- Audio Synthesizer (Zero Dependencies Web Audio API) ---
+    const AudioEngine = {
+      ctx: null,
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+        }
+      },
+      playMove() {
+        this.init();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.09);
+      },
+      playHit() {
+        this.init();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(160, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.18);
+        gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.18);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.19);
+      },
+      playShield() {
+        this.init();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(450, this.ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(800, this.ctx.currentTime + 0.2);
+        gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.21);
+      },
+      playWin() {
+        this.init();
+        [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0.1, this.ctx.currentTime + idx * 0.1);
+          gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + idx * 0.1 + 0.35);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(this.ctx.currentTime + idx * 0.1);
+          osc.stop(this.ctx.currentTime + idx * 0.1 + 0.36);
+        });
+      }
+    };
+
+    // --- State and Standalone Engine ---
+    let gameState = {
+      match_id: "m_local",
+      match_code: "QT01",
+      phase: "LOBBY",
+      turn_count: 1,
+      current_player: "p1",
+      winner: null,
+      win_reason: "",
+      board_size: 5,
+      outpost_pos: [2, 2],
+      outpost_points: { p1: 0, p2: 0 },
+      players: {
+        p1: { id: "p1", name: "Human_Alpha", pos: [0, 0], hp: 3, shield: 0, ap: 2, alive: true, color: "#38bdf8", is_bot: false },
+        p2: { id: "p2", name: "QuantumBot-01", pos: [4, 4], hp: 3, shield: 0, ap: 2, alive: true, color: "#f43f5e", is_bot: true }
+      },
+      energy_crystals: [[1, 3], [3, 1]],
+      valid_moves: [],
+      match_log: ["[00:00:00] Match loaded. Click 'Start Match' or add bots!"]
+    };
+
+    let myPlayerId = "p1";
+    let myToken = "tok_local";
+    let replayHistory = [];
+    let replayIndex = 0;
+    let isServerConnected = false;
+
+    // Check if connected to backend server
+    fetch("/api/match/m_test/state").then(() => {
+      isServerConnected = true;
+      document.getElementById("net-mode").innerText = "ONLINE SERVER";
+      document.getElementById("net-mode").style.background = "rgba(56, 189, 248, 0.2)";
+      document.getElementById("net-mode").style.color = "#38bdf8";
+    }).catch(() => {
+      isServerConnected = false;
+      document.getElementById("net-mode").innerText = "STANDALONE ARENA";
+    });
+
+    const canvas = document.getElementById("game-canvas");
+    const ctx = canvas.getContext("2d");
+    const TILE_SIZE = 480 / 5;
+
+    function renderBoard() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // 1. Draw Grid
+      for (let r = 0; r < 5; r++) {
+        for (let c = 0; c < 5; c++) {
+          const x = c * TILE_SIZE;
+          const y = r * TILE_SIZE;
+
+          ctx.fillStyle = (r + c) % 2 === 0 ? "rgba(15, 23, 42, 0.6)" : "rgba(30, 41, 59, 0.6)";
+          ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.06)";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+
+          // Central Outpost [2, 2]
+          if (r === 2 && c === 2) {
+            ctx.fillStyle = "rgba(56, 189, 248, 0.15)";
+            ctx.fillRect(x + 4, y + 4, TILE_SIZE - 8, TILE_SIZE - 8);
+            ctx.strokeStyle = "#38bdf8";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x + 4, y + 4, TILE_SIZE - 8, TILE_SIZE - 8);
+
+            ctx.fillStyle = "#38bdf8";
+            ctx.font = "bold 11px sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText("OUTPOST", x + TILE_SIZE / 2, y + TILE_SIZE / 2 - 8);
+            ctx.fillText(`★ ${gameState.outpost_points[gameState.current_player] || 0}/3`, x + TILE_SIZE / 2, y + TILE_SIZE / 2 + 10);
+          }
+        }
+      }
+
+      // 2. Draw Energy Crystals
+      if (gameState.energy_crystals) {
+        gameState.energy_crystals.forEach(([cr, cc]) => {
+          const cx = cc * TILE_SIZE + TILE_SIZE / 2;
+          const cy = cr * TILE_SIZE + TILE_SIZE / 2;
+          ctx.beginPath();
+          ctx.arc(cx, cy, 10, 0, Math.PI * 2);
+          ctx.fillStyle = "#10b981";
+          ctx.shadowColor = "#10b981";
+          ctx.shadowBlur = 10;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 10px sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText("+AP", cx, cy + 3);
+        });
+      }
+
+      // 3. Highlight Valid Moves for active player
+      if (gameState.phase === "IN_PROGRESS" && gameState.current_player === myPlayerId) {
+        const moves = getLocalValidMoves(myPlayerId);
+        moves.forEach(m => {
+          if (m.action === "MOVE" && m.target) {
+            const [mr, mc] = m.target;
+            ctx.fillStyle = "rgba(56, 189, 248, 0.25)";
+            ctx.fillRect(mc * TILE_SIZE + 6, mr * TILE_SIZE + 6, TILE_SIZE - 12, TILE_SIZE - 12);
+            ctx.strokeStyle = "#38bdf8";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(mc * TILE_SIZE + 6, mr * TILE_SIZE + 6, TILE_SIZE - 12, TILE_SIZE - 12);
+          } else if (m.action === "ATTACK" && m.target) {
+            const [ar, ac] = m.target;
+            ctx.fillStyle = "rgba(244, 63, 94, 0.35)";
+            ctx.fillRect(ac * TILE_SIZE + 4, ar * TILE_SIZE + 4, TILE_SIZE - 8, TILE_SIZE - 8);
+            ctx.strokeStyle = "#f43f5e";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(ac * TILE_SIZE + 4, ar * TILE_SIZE + 4, TILE_SIZE - 8, TILE_SIZE - 8);
+          }
+        });
+      }
+
+      // 4. Draw Players
+      Object.values(gameState.players).forEach(p => {
+        if (!p.alive) return;
+        const [pr, pc] = p.pos;
+        const px = pc * TILE_SIZE + TILE_SIZE / 2;
+        const py = pr * TILE_SIZE + TILE_SIZE / 2;
+
+        // Forcefield Shield
+        if (p.shield > 0) {
+          ctx.beginPath();
+          ctx.arc(px, py, 34, 0, Math.PI * 2);
+          ctx.strokeStyle = "rgba(56, 189, 248, 0.8)";
+          ctx.lineWidth = 3;
+          ctx.setLineDash([6, 3]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        // Commander Mecha Base
+        ctx.beginPath();
+        ctx.arc(px, py, 26, 0, Math.PI * 2);
+        ctx.fillStyle = p.color || "#38bdf8";
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = p.id === gameState.current_player ? 18 : 6;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // HP & Icon
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 13px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(p.name.slice(0, 5), px, py - 4);
+        ctx.font = "11px sans-serif";
+        ctx.fillText("♥".repeat(p.hp), px, py + 12);
+      });
+    }
+
+    function getLocalValidMoves(pid) {
+      if (gameState.phase !== "IN_PROGRESS" || gameState.current_player !== pid) return [];
+      const p = gameState.players[pid];
+      if (!p || !p.alive || p.ap <= 0) return [];
+
+      const moves = [];
+      const [r, c] = p.pos;
+      const occupied = {};
+      Object.values(gameState.players).forEach(other => {
+        if (other.alive && other.id !== pid) occupied[`${other.pos[0]},${other.pos[1]}`] = other.id;
+      });
+
+      // Moves
+      [[r-1, c], [r+1, c], [r, c-1], [r, c+1]].forEach(([nr, nc]) => {
+        if (nr >= 0 && nr < 5 && nc >= 0 && nc < 5) {
+          if (!occupied[`${nr},${nc}`]) {
+            moves.push({ action: "MOVE", target: [nr, nc], cost: 1 });
+          }
+        }
+      });
+
+      // Attacks
+      Object.values(gameState.players).forEach(other => {
+        if (other.alive && other.id !== pid) {
+          const dist = Math.abs(r - other.pos[0]) + Math.abs(c - other.pos[1]);
+          if (dist === 1) {
+            moves.push({ action: "ATTACK", target: other.pos, target_player: other.id, cost: 1 });
+          }
+        }
+      });
+
+      if (p.shield < 1) moves.push({ action: "SHIELD", cost: 1 });
+      moves.push({ action: "PASS", cost: 0 });
+      return moves;
+    }
+
+    // Canvas Click Interaction
+    canvas.addEventListener("click", e => {
+      if (gameState.phase !== "IN_PROGRESS" || gameState.current_player !== myPlayerId) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const c = Math.floor(x / TILE_SIZE);
+      const r = Math.floor(y / TILE_SIZE);
+
+      const validMoves = getLocalValidMoves(myPlayerId);
+      const clickedMove = validMoves.find(m => m.target && m.target[0] === r && m.target[1] === c);
+
+      if (clickedMove) {
+        doAction(clickedMove.action, clickedMove.target);
+      }
+    });
+
+    function doAction(action, target) {
+      if (isServerConnected) {
+        fetch(`/api/match/${gameState.match_id}/move`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ player_id: myPlayerId, token: myToken, action, target })
+        }).then(r => r.json()).then(data => {
+          if (data.ok) {
+            if (action === "MOVE") AudioEngine.playMove();
+            else if (action === "ATTACK") AudioEngine.playHit();
+            else if (action === "SHIELD") AudioEngine.playShield();
+            updateUI();
+          }
+        });
+      } else {
+        // Local Standalone Execution
+        executeLocalAction(myPlayerId, action, target);
+      }
+    }
+
+    function executeLocalAction(pid, action, target) {
+      const p = gameState.players[pid];
+      if (!p || p.ap <= 0) return;
+
+      if (action === "MOVE") {
+        p.pos = target;
+        p.ap -= 1;
+        AudioEngine.playMove();
+        logMessage(`${p.name} moved to [${target[0]}, ${target[1]}].`);
+        // Check crystal
+        const cIdx = gameState.energy_crystals.findIndex(c => c[0] === target[0] && c[1] === target[1]);
+        if (cIdx >= 0) {
+          gameState.energy_crystals.splice(cIdx, 1);
+          p.ap += 1;
+          logMessage(`⚡ ${p.name} absorbed Energy Crystal (+1 AP)!`, "highlight");
+        }
+      } else if (action === "SHIELD") {
+        p.shield = 1;
+        p.ap -= 1;
+        AudioEngine.playShield();
+        logMessage(`🛡️ ${p.name} deployed Quantum Shield.`);
+      } else if (action === "ATTACK") {
+        p.ap -= 1;
+        AudioEngine.playHit();
+        const victim = Object.values(gameState.players).find(o => o.alive && o.pos[0] === target[0] && o.pos[1] === target[1]);
+        if (victim) {
+          if (victim.shield > 0) {
+            victim.shield = 0;
+            logMessage(`💥 ${p.name} shattered ${victim.name}'s Shield!`, "hit");
+          } else {
+            victim.hp -= 1;
+            logMessage(`💥 ${p.name} hit ${victim.name} (HP: ${victim.hp})!`, "hit");
+            if (victim.hp <= 0) {
+              victim.alive = false;
+              logMessage(`💀 ${victim.name} ELIMINATED!`, "hit");
+            }
+          }
+        }
+      } else if (action === "PASS") {
+        p.ap = 0;
+        logMessage(`${p.name} passed remaining AP.`);
+      }
+
+      recordReplaySnapshot(`${p.name} did ${action}`);
+      checkWinOrAdvance(p);
+      updateUI();
+    }
+
+    function checkWinOrAdvance(p) {
+      // Check elimination win
+      const alive = Object.values(gameState.players).filter(pl => pl.alive);
+      if (alive.length === 1) {
+        gameState.winner = alive[0].id;
+        gameState.win_reason = "Elimination: Last commander standing!";
+        gameState.phase = "ENDED";
+        AudioEngine.playWin();
+        logMessage(`🏆 ${alive[0].name} WON THE MATCH!`, "win");
+        document.getElementById("replay-panel").style.display = "flex";
+        return;
+      }
+
+      // Check AP end
+      if (p.ap <= 0) {
+        // Outpost check
+        if (p.alive && p.pos[0] === 2 && p.pos[1] === 2) {
+          gameState.outpost_points[p.id] = (gameState.outpost_points[p.id] || 0) + 1;
+          logMessage(`⚡ Outpost controlled by ${p.name}! (${gameState.outpost_points[p.id]}/3)`, "highlight");
+          if (gameState.outpost_points[p.id] >= 3) {
+            gameState.winner = p.id;
+            gameState.win_reason = "Domination: Held Central Outpost for 3 turns!";
+            gameState.phase = "ENDED";
+            AudioEngine.playWin();
+            logMessage(`🏆 ${p.name} WON BY OUTPOST DOMINATION!`, "win");
+            document.getElementById("replay-panel").style.display = "flex";
+            return;
+          }
+        }
+
+        // Advance to next alive player
+        const pids = Object.keys(gameState.players);
+        let currIdx = pids.indexOf(gameState.current_player);
+        for (let i = 0; i < pids.length; i++) {
+          currIdx = (currIdx + 1) % pids.length;
+          const nextPid = pids[currIdx];
+          if (gameState.players[nextPid].alive) {
+            gameState.current_player = nextPid;
+            gameState.turn_count++;
+            gameState.players[nextPid].ap = 2;
+            logMessage(`Round ${gameState.turn_count}: ${gameState.players[nextPid].name}'s turn.`);
+            break;
+          }
+        }
+
+        // Trigger bot if bot turn
+        if (gameState.players[gameState.current_player].is_bot) {
+          setTimeout(runLocalBotTurn, 600);
+        }
+      }
+    }
+
+    function runLocalBotTurn() {
+      if (gameState.phase !== "IN_PROGRESS") return;
+      const botPid = gameState.current_player;
+      const b = gameState.players[botPid];
+      if (!b || !b.alive || !b.is_bot) return;
+
+      const validMoves = getLocalValidMoves(botPid);
+      if (!validMoves.length) {
+        executeLocalAction(botPid, "PASS");
+        return;
+      }
+
+      // Bot Strategy: Kill > Shield if threatened > Move to center
+      let chosen = validMoves.find(m => m.action === "ATTACK");
+      if (!chosen && b.shield === 0) chosen = validMoves.find(m => m.action === "SHIELD");
+      if (!chosen) {
+        // Move closest to [2, 2]
+        const moveOptions = validMoves.filter(m => m.action === "MOVE");
+        moveOptions.sort((m1, m2) => {
+          const d1 = Math.abs(m1.target[0] - 2) + Math.abs(m1.target[1] - 2);
+          const d2 = Math.abs(m2.target[0] - 2) + Math.abs(m2.target[1] - 2);
+          return d1 - d2;
+        });
+        chosen = moveOptions[0];
+      }
+      if (!chosen) chosen = validMoves[0];
+
+      executeLocalAction(botPid, chosen.action, chosen.target);
+    }
+
+    function logMessage(text, cls = "") {
+      const box = document.getElementById("match-log");
+      const d = document.createElement("div");
+      d.className = `log-item ${cls}`;
+      const timeStr = new Date().toTimeString().split(" ")[0];
+      d.innerText = `[${timeStr}] ${text}`;
+      box.appendChild(d);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function recordReplaySnapshot(desc) {
+      replayHistory.push({
+        desc,
+        state: JSON.parse(JSON.stringify(gameState))
+      });
+      replayIndex = replayHistory.length - 1;
+      document.getElementById("replay-step").innerText = `${replayIndex + 1} / ${replayHistory.length}`;
+    }
+
+    function stepReplay(delta) {
+      if (!replayHistory.length) return;
+      replayIndex = Math.max(0, Math.min(replayHistory.length - 1, replayIndex + delta));
+      gameState = JSON.parse(JSON.stringify(replayHistory[replayIndex].state));
+      document.getElementById("replay-step").innerText = `${replayIndex + 1} / ${replayHistory.length}`;
+      renderBoard();
+      updatePlayerList();
+    }
+
+    function updateUI() {
+      renderBoard();
+      updatePlayerList();
+
+      const curr = gameState.players[gameState.current_player];
+      if (curr) {
+        document.getElementById("turn-indicator").innerText = `Round ${gameState.turn_count} - ${curr.name}'s Turn`;
+        document.getElementById("turn-indicator").style.color = curr.color;
+        document.getElementById("turn-indicator").style.borderColor = curr.color;
+        document.getElementById("ap-indicator").innerText = `AP: ${"● ".repeat(curr.ap)}${"○ ".repeat(2 - curr.ap)}`;
+      }
+
+      const isMyTurn = gameState.phase === "IN_PROGRESS" && gameState.current_player === myPlayerId;
+      document.getElementById("btn-shield").disabled = !isMyTurn || (curr && curr.shield > 0);
+      document.getElementById("btn-pass").disabled = !isMyTurn;
+    }
+
+    function updatePlayerList() {
+      const list = document.getElementById("player-list");
+      list.innerHTML = "";
+      Object.values(gameState.players).forEach(p => {
+        const row = document.createElement("div");
+        row.className = `player-row ${p.id === gameState.current_player ? "active" : ""}`;
+        row.innerHTML = `
+          <div class="player-meta">
+            <div class="color-dot" style="background: ${p.color};"></div>
+            <div>
+              <div style="font-weight: 700; font-size: 0.9rem;">${p.name} ${p.is_bot ? "🤖" : "👤"}</div>
+              <div style="font-size: 0.75rem; color: #94a3b8;">Outpost pts: ${gameState.outpost_points[p.id] || 0}/3 | Shield: ${p.shield ? "Active" : "None"}</div>
+            </div>
+          </div>
+          <div class="hp-hearts">${p.alive ? "♥".repeat(p.hp) : "ELIMINATED"}</div>
+        `;
+        list.appendChild(row);
+      });
+    }
+
+    function createMatch() {
+      const name = document.getElementById("player-name").value.trim() || "Alpha";
+      if (isServerConnected) {
+        fetch("/api/match/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ player_name: name, max_players: 2 })
+        }).then(r => r.json()).then(data => {
+          gameState.match_id = data.match_id;
+          gameState.match_code = data.match_code;
+          myPlayerId = data.player_id;
+          myToken = data.token;
+          document.getElementById("disp-room-code").innerText = data.match_code;
+          logMessage(`Room created: ${data.match_code}. Share code with opponent!`, "highlight");
+          pollServerState();
+        });
+      } else {
+        gameState.players.p1.name = name;
+        logMessage(`Standalone Room ${gameState.match_code} ready.`, "highlight");
+        updateUI();
+      }
+    }
+
+    function addBot() {
+      if (Object.keys(gameState.players).length >= 4) {
+        alert("Maximum 4 players reached!");
+        return;
+      }
+      const newPid = `p${Object.keys(gameState.players).length + 1}`;
+      const colors = ["#38bdf8", "#f43f5e", "#10b981", "#f59e0b"];
+      const spawns = [[0, 0], [4, 4], [0, 4], [4, 0]];
+      const idx = Object.keys(gameState.players).length;
+
+      gameState.players[newPid] = {
+        id: newPid,
+        name: `QuantumBot-${idx}`,
+        pos: spawns[idx],
+        hp: 3,
+        shield: 0,
+        ap: 2,
+        alive: true,
+        color: colors[idx],
+        is_bot: true
+      };
+      gameState.outpost_points[newPid] = 0;
+      logMessage(`🤖 AI Bot ${gameState.players[newPid].name} entered the room.`);
+      updateUI();
+    }
+
+    function startMatch() {
+      gameState.phase = "IN_PROGRESS";
+      gameState.turn_count = 1;
+      gameState.current_player = "p1";
+      gameState.players.p1.ap = 2;
+      logMessage("🚀 MATCH COMMENCED! Tactical control active.", "win");
+      recordReplaySnapshot("Match Start");
+      updateUI();
+    }
+
+    function joinMatch() {
+      const code = document.getElementById("join-code").value.trim().toUpperCase();
+      if (!code) return alert("Please enter room code!");
+      if (isServerConnected) {
+        fetch("/api/match/join", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ match_code: code, player_name: document.getElementById("player-name").value })
+        }).then(r => r.json()).then(data => {
+          if (data.ok) {
+            gameState.match_id = data.match_id;
+            myPlayerId = data.player_id;
+            myToken = data.token;
+            logMessage(`Joined room ${code} as ${myPlayerId}!`, "highlight");
+            pollServerState();
+          } else {
+            alert(data.error);
+          }
+        });
+      } else {
+        alert("Standalone Mode: Use '+ Add AI Bot' and 'Start Match' directly!");
+      }
+    }
+
+    function pollServerState() {
+      if (!isServerConnected) return;
+      fetch(`/api/match/${gameState.match_id}/state?player_id=${myPlayerId}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.ok) {
+            gameState = data;
+            updateUI();
+            if (gameState.phase !== "ENDED") setTimeout(pollServerState, 1200);
+          }
+        });
+    }
+
+    // Init
+    updateUI();
+  </script>
+</body>
+</html>
